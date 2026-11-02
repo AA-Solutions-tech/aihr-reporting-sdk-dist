@@ -20,8 +20,8 @@ In the chat, a manager asks questions in English or Arabic, such as "Who was
 late most this month?", "Who has not checked in today?", "Compare attendance
 with last week" or "How much time did Nizamy save this month?". Each answer is
 a short reply, with a card when the numbers need one (KPI tiles, a ranking, a
-trend line, a comparison, an ROI donut or a table) and suggested follow-up
-questions.
+trend bar chart, a side-by-side comparison, an ROI donut or a table) and
+suggested follow-up questions.
 
 - **You provide:** the logged-in user's Nizamy access token, and a place to
   open the chat (for example an "Ask AI about your reports" card on your
@@ -111,25 +111,33 @@ import 'package:aihr_reporting_sdk/aihr_reporting_sdk.dart';
 
 ### As a full screen (most common)
 
+Put the widget in a page of its own that keeps the token in its own state
+(the full page is in Section 8):
+
+```dart
+// In the State of your chat page
+AiHrReportingWidget(
+  authToken: _token,                     // the logged-in user's Nizamy access token
+  language: 'ar',                        // optional; defaults to the app locale
+  onAuthError: (reason) async {          // token rejected: get a fresh one, rebuild with it
+    final fresh = await widget.session.refreshAccessToken();
+    if (mounted) setState(() => _token = fresh);
+  },
+  onClose: () => Navigator.of(context).pop(),
+)
+```
+
+Then open that page from your entry point:
+
 ```dart
 Navigator.of(context).push(
-  MaterialPageRoute(
-    builder: (_) => Scaffold(
-      body: SafeArea(
-        child: AiHrReportingWidget(
-          authToken: session.accessToken,      // the logged-in user's Nizamy access token
-          language: 'ar',                      // optional; defaults to the app locale
-          onAuthError: (reason) async {        // token rejected: refresh it, rebuild with the new one
-            final fresh = await session.refreshAccessToken();
-            setState(() => session.accessToken = fresh);
-          },
-          onClose: () => Navigator.of(context).pop(),
-        ),
-      ),
-    ),
-  ),
+  MaterialPageRoute(builder: (_) => ReportingChatPage(session: session)),
 );
 ```
+
+> Keep the token in the chat page's own state. Calling `setState` in the
+> screen that opens the chat does not rebuild the pushed page, so the widget
+> would keep the old token.
 
 The widget fills its parent, so give it a sized container (a `Scaffold` body,
 an `Expanded` — anything with bounded height). The chat has its own header
@@ -233,6 +241,7 @@ Navigator.of(context).push(
 | **"AI Reporting is not available for your account"** | The user's role does not have reporting access (Section 6). |
 | **Answers say "No records for this period"** | Your attendance report has no rows for those days in that company. Try another period, or check the data in your Reports screen. |
 | **Answers say days had "no schedule"** | People checked in, but those days had no shift assigned in Nizamy, so attendance and lateness cannot be measured. |
+| **"Your session has expired" with a valid token** | The company is not registered with AI-HR yet. Our backend only accepts tokens of registered companies; contact the AI-HR team to register it. |
 | **Chat shows English in an Arabic app** | `language` was passed as `'en'`, or your app's locale is English. Leave `language` out to follow the app locale. |
 | **Links inside the chat do nothing** | By design: navigation is locked to the reporting page; any other link is blocked. |
 | **Build fails on Android** | A `flutter_inappwebview` version conflict with your app; align both on a compatible 6.x version. |
